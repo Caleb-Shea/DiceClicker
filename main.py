@@ -18,10 +18,11 @@ class Die(pyg.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = (WIDTH//2, HEIGHT//2)
 
-        self.num_sides = 12 # Number of sides the dice can potentially roll
+        self.num_sides = 3 # Max number the dice can potentially roll
         self.bias = 0 # How likely a dice is to roll a higher number
+        self.cur_face = 1 # The current side of the dice
         self.speed = 1 # The time it takes to complete the rolling animation
-        self.side = 1 # The current side of the dice
+        self.roll_cooldown = 0
 
         self.die_sides = {1: pyg.image.load(get_path(os.path.join('imgs', 'die_faces', '1.png'))),
                            2: pyg.image.load(get_path(os.path.join('imgs', 'die_faces', '2.png'))),
@@ -36,6 +37,7 @@ class Die(pyg.sprite.Sprite):
                            11: pyg.image.load(get_path(os.path.join('imgs', 'die_faces', '11.png'))),
                            12: pyg.image.load(get_path(os.path.join('imgs', 'die_faces', '12.png')))}
 
+        self.add_money_this_frame = False
 
     def set_num_sides(self, amount):
         self.num_sides = amount
@@ -45,15 +47,52 @@ class Die(pyg.sprite.Sprite):
         self.image = self.die_sides[num]
 
     def roll(self):
-        self.side = random.randint(1, self.num_sides)
+        self.cur_face = random.randint(1, self.num_sides)
 
-        self.set_image(self.side)
+        self.set_image(self.cur_face)
+
+        self.roll_cooldown = self.speed * FPS//2
+
+    def update(self):
+        if self.roll_cooldown > 0: # Rolling animation control
+            self.roll_cooldown -= 1
+            self.set_image(random.randint(1, self.num_sides))
+            if self.roll_cooldown == 0:
+                self.set_image(self.cur_face)
+                self.add_money_this_frame = True
 
     def set_pos(self, pos):
         self.rect.center = pos
 
     def render(self):
         self.window.blit(self.image, self.rect)
+
+
+class GUI():
+    def __init__(self, window):
+        self.window = window
+
+        self.font24 = pyg.font.Font(get_path(os.path.join('fonts', 'Massa.ttf')), 24)
+        self.font32 = pyg.font.Font(get_path(os.path.join('fonts', 'Massa.ttf')), 32)
+        self.font40 = pyg.font.Font(get_path(os.path.join('fonts', 'Massa.ttf')), 40)
+
+        self.text_list = []
+        self.dyn_dict = {}
+
+        self.add_text('Current $: ', (10, 20), (0, 0, 0))
+
+
+    def add_text(self, text, pos, col):
+        for t in self.text_list[:]: # If text already exists at a certain place, replace it
+            if t[1] == pos:
+                self.text_list.remove(t)
+
+        surf = self.font32.render(text, True, col)
+        self.text_list.append([surf, pos])
+
+    def render(self):
+        for t in self.text_list:
+            self.window.blit(t[0], t[1])
 
 
 def terminate():
@@ -86,9 +125,13 @@ def position_all_dice(dice):
             die.rect.centerx = WIDTH//len(row) * (j + .5)
 
 def main():
+    gui = GUI(window)
+
     dice = []
     die1 = Die(window)
     dice.append(die1)
+
+    money = 0
 
     clock = pyg.time.Clock()
 
@@ -106,16 +149,32 @@ def main():
                         dice.append(die)
 
                         position_all_dice(dice)
+                elif event.key == pyg.K_o:
+                    # gui.add_text(f'{random.random()}test', (100, 200), (0, 0, 0))
+                    money *= 2
+                elif event.key == pyg.K_p:
+                    for d in dice:
+                        if d.num_sides < 12:
+                            d.num_sides += 1
 
             elif event.type == pyg.MOUSEBUTTONDOWN:
                 for d in dice:
                     if d.rect.collidepoint(event.pos):
-                        d.roll()
+                        if d.roll_cooldown == 0:
+                            d.roll()
+
+        gui.add_text(str(money), (175, 20), (200, 0, 0))
 
         window.fill((200, 200, 200))
 
         for d in dice:
+            d.update()
+            if d.add_money_this_frame:
+                money += d.cur_face
+                d.add_money_this_frame = False
             d.render()
+
+        gui.render()
 
         pyg.display.flip()
         clock.tick(FPS)
