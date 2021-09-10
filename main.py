@@ -21,7 +21,7 @@ class Die(pyg.sprite.Sprite):
         self.num_sides = 3 # Max number the dice can potentially roll
         self.bias = 0 # How likely a dice is to roll a higher number
         self.cur_face = 1 # The current side of the dice
-        self.speed = 1 # The time it takes to complete the rolling animation
+        self.speed = 8 # The time it takes to complete the rolling animation
         self.roll_cooldown = 0
 
         self.die_sides = {1: pyg.image.load(get_path(os.path.join('imgs', 'die_faces', '1.png'))),
@@ -38,6 +38,8 @@ class Die(pyg.sprite.Sprite):
                            12: pyg.image.load(get_path(os.path.join('imgs', 'die_faces', '12.png')))}
 
         self.add_money_this_frame = False
+
+        self.money_made = 0
 
     def set_num_sides(self, amount):
         self.num_sides = amount
@@ -66,6 +68,61 @@ class Die(pyg.sprite.Sprite):
 
     def render(self):
         self.window.blit(self.image, self.rect)
+
+
+class DieInfo():
+    def __init__(self, window, die):
+        self.window = window
+        self.die = die
+
+        self.font20 = pyg.font.Font(get_path(os.path.join('fonts', 'Massa.ttf')), 20)
+        self.font15 = pyg.font.Font(get_path(os.path.join('fonts', 'Massa.ttf')), 15)
+
+        self.image = pyg.Surface(die.rect.size).convert_alpha()
+        self.image.fill((0, 200, 150, 180))
+        self.rect = self.image.get_rect()
+
+        self.show_stats = False
+
+    def update(self):
+        if self.show_stats:
+            self.image = pyg.transform.smoothscale(self.image, (200, 200))
+        else:
+            self.image = pyg.transform.smoothscale(self.image, self.die.rect.size)
+        self.rect = self.image.get_rect()
+
+        self.rect.left = self.die.rect.right + 10
+        self.rect.y = self.die.rect.y
+
+        if self.rect.right > WIDTH:
+            self.rect.right = self.die.rect.left - 20
+
+    def update_image(self):
+        self.image.fill((0, 200, 150, 180))
+
+        if self.show_stats:
+            self.money_made_text = self.font15.render(f'Money Made: {self.die.money_made}', True, (0, 0, 0))
+
+            self.image.blit(self.money_made_text, (10, 10))
+
+        else:
+            black = (0, 0, 0)
+            self.num_sides_text = self.font20.render(f'Max: {self.die.num_sides}', True, black)
+            self.bias_text = self.font20.render(f'Level: {self.die.bias}', True, black)
+            self.speed_text = self.font20.render(f'Speed: {self.die.speed}', True, black)
+
+            self.bottom_text = self.font15.render('To see stats,', True, (0, 0, 0))
+            self.bottom_text2 = self.font15.render('hold SHIFT', True, (0, 0, 0))
+
+            self.image.blit(self.num_sides_text, (10, 10))
+            self.image.blit(self.bias_text, (10, 30))
+            self.image.blit(self.speed_text, (10, 50))
+            self.image.blit(self.bottom_text, (10, 80))
+            self.image.blit(self.bottom_text2, (10, 95))
+
+    def render(self):
+        if self.die.rect.collidepoint(pyg.mouse.get_pos()):
+            self.window.blit(self.image, self.rect)
 
 
 class GUI():
@@ -108,6 +165,15 @@ def play_sound(sound):
     se_channel = pyg.mixer.find_channel()
     se_channel.play(sound)
 
+def new_dice(window, dice, dice_info):
+    if len(dice) < 60:
+        die = Die(window)
+        dice.append(die)
+        position_all_dice(dice)
+
+        die_info = DieInfo(window, die)
+        dice_info.append(die_info)
+
 def position_all_dice(dice):
     num_die = len(dice)
     num_rows = math.ceil(num_die / 10)
@@ -128,8 +194,13 @@ def main():
     gui = GUI(window)
 
     dice = []
+    dice_info = []
+
     die1 = Die(window)
+    die_info1 = DieInfo(window, die1)
+
     dice.append(die1)
+    dice_info.append(die_info1)
 
     money = 0
 
@@ -143,12 +214,11 @@ def main():
             elif event.type == pyg.KEYDOWN:
                 if event.key == pyg.K_BACKQUOTE:
                     terminate()
-                elif event.key == pyg.K_SPACE: # New dice, max of 60
-                    if len(dice) < 60:
-                        die = Die(window)
-                        dice.append(die)
-
-                        position_all_dice(dice)
+                elif event.key == pyg.K_SPACE: # Add new dice, max of 60
+                    new_dice(window, dice, dice_info)
+                elif event.key == pyg.K_LSHIFT:
+                    for di in dice_info:
+                        di.show_stats = True
                 elif event.key == pyg.K_o:
                     # gui.add_text(f'{random.random()}test', (100, 200), (0, 0, 0))
                     money *= 2
@@ -156,6 +226,11 @@ def main():
                     for d in dice:
                         if d.num_sides < 12:
                             d.num_sides += 1
+
+            elif event.type == pyg.KEYUP:
+                if event.key == pyg.K_LSHIFT:
+                    for di in dice_info:
+                        di.show_stats = False
 
             elif event.type == pyg.MOUSEBUTTONDOWN:
                 for d in dice:
@@ -171,8 +246,14 @@ def main():
             d.update()
             if d.add_money_this_frame:
                 money += d.cur_face
+                d.money_made += d.cur_face
                 d.add_money_this_frame = False
             d.render()
+
+        for di in dice_info:
+            di.update()
+            di.update_image()
+            di.render()
 
         gui.render()
 
