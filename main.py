@@ -70,6 +70,23 @@ class Die(pyg.sprite.Sprite):
         self.window.blit(self.image, self.rect)
 
 
+class DieUpgrade():
+    def __init__(self, window, die):
+        self.window = window
+        self.die = die
+
+        self.font20 = pyg.font.Font(get_path(os.path.join('fonts', 'Massa.ttf')), 20)
+        self.font15 = pyg.font.Font(get_path(os.path.join('fonts', 'Massa.ttf')), 15)
+
+        self.up1_button = Button(self.window, pyg.USEREVENT + 1,
+                                 self.die.rect.move(0, 120).topleft, (self.die.rect.width, 30),
+                                 (170, 100, 100, 180), text='Upgrade Level')
+
+    def render(self):
+        if self.die.rect.collidepoint(pyg.mouse.get_pos()):
+            self.up1_button.render()
+
+
 class DieInfo():
     def __init__(self, window, die):
         self.window = window
@@ -86,7 +103,7 @@ class DieInfo():
 
     def update(self):
         if self.show_stats:
-            self.image = pyg.transform.smoothscale(self.image, (200, 200))
+            self.image = pyg.transform.smoothscale(self.image, (200, 150))
         else:
             self.image = pyg.transform.smoothscale(self.image, self.die.rect.size)
         self.rect = self.image.get_rect()
@@ -123,6 +140,41 @@ class DieInfo():
     def render(self):
         if self.die.rect.collidepoint(pyg.mouse.get_pos()):
             self.window.blit(self.image, self.rect)
+
+class Button():
+    def __init__(self, window, e_num, pos, size, bg_col, icon=None, text=None):
+        self.window = window
+
+        self.image = pyg.Surface((size))
+        self.image.fill(bg_col)
+        self.rect = self.image.get_rect()
+        self.rect.topleft = pos
+
+        self.font15 = pyg.font.Font(get_path(os.path.join('fonts', 'Massa.ttf')), 15)
+
+        self.e_num = e_num
+
+        self.icon = icon
+        self.text = text
+
+        if self.icon != None:
+            self.icon = pyg.image.load(get_path(os.path.join('imgs', 'buttons', f'{icon}.png')))
+            self.icon_rect = self.icon.get_rect()
+            self.icon_rect.center = self.rect.center
+
+            self.image.blit(self.icon, self.icon_rect)
+        elif self.text != None:
+            self.text = self.font15.render(self.text, True, (0, 0, 0, 200))
+            self.text_rect = self.text.get_rect()
+            self.text_rect.center = self.rect.center
+
+            pos = (self.text_rect.x - self.rect.x, # Adjust for image rect offset
+                   self.text_rect.y - self.rect.y)
+
+            self.image.blit(self.text, pos)
+
+    def render(self):
+        self.window.blit(self.image, self.rect)
 
 
 class GUI():
@@ -165,7 +217,7 @@ def play_sound(sound):
     se_channel = pyg.mixer.find_channel()
     se_channel.play(sound)
 
-def new_dice(window, dice, dice_info):
+def new_dice(window, dice, dice_info, dice_up):
     if len(dice) < 60:
         die = Die(window)
         dice.append(die)
@@ -173,6 +225,9 @@ def new_dice(window, dice, dice_info):
 
         die_info = DieInfo(window, die)
         dice_info.append(die_info)
+
+        die_up = DieUpgrade(window, die)
+        dice_up.append(die_up)
 
 def position_all_dice(dice):
     num_die = len(dice)
@@ -195,12 +250,9 @@ def main():
 
     dice = []
     dice_info = []
+    dice_up = []
 
-    die1 = Die(window)
-    die_info1 = DieInfo(window, die1)
-
-    dice.append(die1)
-    dice_info.append(die_info1)
+    new_dice(window, dice, dice_info, dice_up)
 
     money = 0
 
@@ -254,6 +306,9 @@ def main():
             di.update()
             di.update_image()
             di.render()
+
+        for du in dice_up:
+            du.render()
 
         gui.render()
 
