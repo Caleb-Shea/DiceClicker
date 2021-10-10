@@ -38,6 +38,7 @@ class Die(pyg.sprite.Sprite):
                            12: pyg.image.load(get_path(os.path.join('imgs', 'die_faces', '12.png')))}
 
         self.add_money_this_frame = False
+        self.show_menu = False
 
         self.money_made = 0
 
@@ -63,6 +64,13 @@ class Die(pyg.sprite.Sprite):
                 self.set_image(self.cur_face)
                 self.add_money_this_frame = True
 
+        if self.show_menu == False:
+            if self.rect.collidepoint(pyg.mouse.get_pos()):
+                self.show_menu = True
+        else:
+            if not self.rect.inflate(0, 75).collidepoint(pyg.mouse.get_pos()):
+                self.show_menu = False
+
     def set_pos(self, pos):
         self.rect.center = pos
 
@@ -82,8 +90,11 @@ class DieUpgrade():
                                  self.die.rect.move(0, 120).topleft, (self.die.rect.width, 30),
                                  (170, 100, 100, 180), text='Upgrade Level')
 
+    def update(self):
+        self.up1_button.rect.topleft = self.die.rect.move(0, 120).topleft
+
     def render(self):
-        if self.die.rect.collidepoint(pyg.mouse.get_pos()):
+        if self.die.show_menu:
             self.up1_button.render()
 
 
@@ -138,7 +149,7 @@ class DieInfo():
             self.image.blit(self.bottom_text2, (10, 95))
 
     def render(self):
-        if self.die.rect.collidepoint(pyg.mouse.get_pos()):
+        if self.die.show_menu:
             self.window.blit(self.image, self.rect)
 
 class Button():
@@ -267,7 +278,7 @@ def main():
                 if event.key == pyg.K_BACKQUOTE:
                     terminate()
                 elif event.key == pyg.K_SPACE: # Add new dice, max of 60
-                    new_dice(window, dice, dice_info)
+                    new_dice(window, dice, dice_info, dice_up)
                 elif event.key == pyg.K_LSHIFT:
                     for di in dice_info:
                         di.show_stats = True
@@ -290,6 +301,8 @@ def main():
                         if d.roll_cooldown == 0:
                             d.roll()
 
+                if button clicked, open ugrade menu
+
         gui.add_text(str(money), (175, 20), (200, 0, 0))
 
         window.fill((200, 200, 200))
@@ -308,6 +321,7 @@ def main():
             di.render()
 
         for du in dice_up:
+            du.update()
             du.render()
 
         gui.render()
